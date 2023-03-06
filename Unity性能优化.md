@@ -589,3 +589,240 @@
   - 2.针对SSAO的Shader指令做进一步优化
   - 3.可以采用烘焙AO到光照贴图的方案替换SSAO方案
 
+## 第二十讲 性能优化实战理论课（1）——Unity中的Culling
+
+- 哪些是需要剔除的内容
+  - 广义上讲：
+    - 看不见的像素、网格和对象
+    - 重复的用不到的资源
+    - 不需要、不执行的代码
+- Unity中的剔除
+  - 像素剔除：
+    - 摄像机平截头体剔除、Back-face Culling、Early-Z、Pre-Z Pass
+  - 网格剔除：
+    - Layer Mask、可见距离剔除、Occlusion（减少GPU消耗，增加CPU消耗，酌情使用）
+  - 灯光剔除：
+    - Tile-Based Deferred Rendering、Forward+
+  - 场景剔除：
+    - Additive Scene
+- 用户扩展剔除
+  - 场景数据结构：
+    - Octree、BSP Tree、Portal、Voxelization、SDF等
+    - GPU Culling：Hi-Z Pass、Temporal Reprojection Culling、Cluster、Tile-based Visible Buffer等
+
+## 第二十一讲 性能优化实战理论课（2）——Unity中的Simplization
+
+- 哪些是需要简化的内容
+  - 广义上讲：
+    - 运行效率较重的资源
+    - 低效、不合适的功能
+- Unity下的简化
+  - Quality Settings
+  - 通过烘焙光照简化实时光照
+  - 通过BoundingBox或替代体碰撞代替Mesh碰撞
+  - 通过Local Volume替代Global Volume
+  - RayCast替代SphereCast、CapsuleCast等
+  - 纹理文字替代系统文字
+  - Mesh LOD
+  - Shader LOD
+  - HLOD
+  - 通过Camera Override代替URP管线中的一些通用设置
+  - 各种OnDemand更新或分级设置接口
+  - 。。。
+- 用户扩展简化
+  - 场景简化数据结构
+  - 第三方LOD方案
+  - Mesh Impostor
+  - Animation LOD
+  - 骨骼LOD
+  - 2D寻路代替Navigation Mesh
+  - 扩展类似OnDemand接口
+- 各种插件可以选用
+
+## 第二十二讲 性能优化实战理论课（3）——Unity中的Batching（上）
+
+- 哪些内容需要Batching
+  - 广义上讲
+    - 资源Batching（Mesh、Texture、Shader参数、材质属性）
+      - 这些资源的合批目的是做后续合批的前提
+    - Draw call Batching（Static Batching、Dynamic Batching）
+      - 降低GPU的DP操作，更少的调用绘制命令接口
+    - GPU Instancing（直接渲染、间接渲染、程序化间接渲染）
+      - 用于绘制多个副本网格对象
+    - Set Pass call Batching（SRP Batching）
+      - 减少渲染状态切换的次数
+- 资源的Batching
+  - Mesh：
+    - Mesh.CombineMesh，合并静态网格对象
+      - 临近且不移动的物体，用一次网格的渲染调用代替多次网格的渲染调用
+      - 弊端：合并的网格过大，相机可能剔除不掉；以及overdraw的问题
+    - Submeshes->Single Mesh，合并材质与贴图，不同材质通过通道图标记
+  - Texture：
+    - AtlasTexture，通过纹理坐标映射多张贴图
+    - TextureArray纹理数组
+  - Shader变量与材质属性
+    - Material Property Block（Build In管线）
+    - Const buffer（SRP管线）
+
+- Draw Call Batching
+  - Static Batching
+    - StaticBatchingUtility.Combine（动态生成的需要合批的内容）
+      - 会在空间中保留一个额外的拷贝，空间换时间
+  - Dynamic Batching
+    - 在现在某些设备上开启时CPU可能负担更大，需要结合具体设备测试
+
+- GPU Instancing
+  - DrawMeshInstanced
+  - DrawMeshInstancedIndirect
+  - DrawMeshInstancedProcedural
+- Set Pass Call Batching
+  - SRP Batcher（仅在SRP开启）
+  - Const Buffer
+    - UnityPerCamera
+    - UnityPerFrame
+    - UnityPerPass
+    - UnityPerDraw
+    - UnityPerDrawRare
+    - UnityPerMaterial
+
+- Batching优化顺序
+  - 资源Batching > SRP Batching = Static Batching > GPU Instancing > Dynamic Batching
+
+## 第二十三讲 性能优化实战理论课（4）——Unity中的Batching（下）
+
+- Static Batching限制
+  - 额外内存开销
+  - 64000个顶点限制
+  - 影响Culling剔除
+- Dynamic Batching限制
+  - 合批不超过900个顶点属性（注意不上900个顶点）
+  - 除了渲染阴影外，相同材质，不同材质实例也不能合并
+  - 具有光照贴图的游戏对象如果有附加渲染器参数时，如果需要动态合批这些对象，他们必须指向相同的光照贴图位置
+  - 有多Shader Pass的游戏对象无法做动态合批
+  - 受多个光照影响的游戏对象，满足动态合批条件合批后，只会受一个光源的影响
+  - 延迟渲染下不支持动态合批
+  - CPU开销可能会增大，需要测试开启使用
+- GPU Instancing限制
+  - 图像API版本要求
+  - 与SRPBatcher不兼容
+  - 不同绘制API的参数与绘制个数不同
+  - 渲染顶点数较少的网格时，效率可能会较差（测试使用）
+- Batching失败原因
+  - 见视频，有git仓库内容
+
+## 第三十二讲 内存优化（1）——Unity中的内存概述与工具方法
+
+<img src="C:\Users\zhendongjin\Documents\WXWork\1688857440353174\Cache\Image\2023-03\企业微信截图_16780887968474.png" alt="企业微信截图_16780887968474" style="zoom:40%;" />
+
+- Unity中的内存
+  - 托管内存：
+    - 主要是指使用托管堆或者垃圾收集器自动分配和管理的内存
+    - 也包括脚本堆栈与虚拟机内存
+  - C#非托管内存：
+    - 可以在C#下与Unity Collection名字空间和包结合使用，不使用垃圾收集器管理的内存部分
+  - Native内存：
+    - Unity用于运行引擎的C++内存
+- 可以自定义扩展Unity Profiler 里面的内存显示内容
+- Memory Profiler（超详细）
+- Project Settings -> Memory Settings
+- UPR内存栏内容
+- 苹果：profiling template -> Allocations
+
+## 第三十三讲 内存优化（2）——Native内存分配器详解
+
+- 按用途分类
+  - Main Allocators
+  - Fast Per Thread Temporary Allocators
+  - Fast Thread Shared Temporary Allocators
+  - Profiler Allocators
+
+- 其余见视频，内容太多
+
+## 第三十四 内存优化（3）——内存指标术语与进程内存介绍
+
+- Memory Profiler中的内存度量与术语
+  - Page：操作系统内存管理的最小单元
+    - Page的状态：
+      - Used
+      - Free
+      - Cache
+  - Region：共享状态和保护级别的连续内存空间
+    - Region的状态：
+      - Resident
+      - Dirty
+      - Wired
+      - Committed
+      - Reserved
+      - Free
+    - Region的类型
+      - Anonymous
+      - Mapped
+
+<img src="file:///C:/Users/zhendongjin/Documents/WXWork/1688857440353174/Cache/Image/2023-03/企业微信截图_16780917896100.png" alt="img" style="zoom:40%;" />
+
+<img src="file:///C:/Users/zhendongjin/Documents/WXWork/1688857440353174/Cache/Image/2023-03/企业微信截图_16780919517531.png" alt="img" style="zoom:40%;" />
+
+<img src="file:///C:/Users/zhendongjin/Documents/WXWork/1688857440353174/Cache/Image/2023-03/企业微信截图_16780921905237.png" alt="img" style="zoom:40%;" />
+
+<img src="file:///C:/Users/zhendongjin/Documents/WXWork/1688857440353174/Cache/Image/2023-03/企业微信截图_16780929796439.png" alt="img" style="zoom:40%;" />
+
+## 第三十六讲 内存优化（4）——Shader与托管内存优化
+
+- Shader变体的三个问题
+
+  - 使用ShaderVariantCollection就万事大吉了吗？
+  - 我们有很牛的云收集方案，肯定能将Shader变体收集完整
+  - 我们已经做了Shader变体剔除与收集，并对收集的变体做了Warmup，但还是会有运行时Shader加载编译情况
+
+- 如何查找Shader变体的相关信息
+
+  - 打包后的Editor.log搜索 ”Compiling shader“
+
+- 托管内存优化
+
+  - Boxing Allocation装箱操作
+  - String字符串拼接
+  - 闭包分配
+  - 避免使用Linq库
+
+  - Unity中提供了Nonalloc函数，如Physics.RayCastAll用Physics.RayCastAllNonAlloc代替
+
+  - Unity.Object.FindObjectsOfType,
+
+    UnityEngine.Component.GetComponentsInParent,
+
+    UnityEngine.Component.GetComponentsInChild等
+
+  - 成员变量访问方式
+
+    UnityEngine.Mesh.vertices => UnityEngine.Mesh.GetVertices,
+
+    UnityEngine.Mesh.uv => UnityEngine.Mesh.GetUV
+
+    UnityEngine.Renderer.sharedMaterials => UnityEngine.Renderer.GetSharedMaterials,
+
+    Unity.Input.touches => Unity.Input.GetTouches等
+
+- Player-> Configuration -> Use incremental GC（可以将一帧里面的gc分摊到多帧执行，平滑帧率）
+
+## 第三十八讲 发布前优化（1）——耗电量与发热量优化
+
+<img src="file:///C:/Users/zhendongjin/Documents/WXWork/1688857440353174/Cache/Image/2023-03/企业微信截图_16780951252523.png" alt="img" style="zoom:40%;" />
+
+- 常规负载优化
+  - CPU负载
+  - GPU负载
+  - 60FPS -> CPU 10-12ms GPU 6-8ms
+  - 30FPS -> CPU 18-20ms GPU 8-10ms
+  - CPU可以放宽，GPU要求要更严一些
+- 非常规优化
+  - 1.网络与IO
+    - 发包频率
+    - 频繁IO读写
+  - 2.显示亮度有FPS
+    - 省电模式
+    - OnDemandRenderinng
+  - 3.三方库
+    - Wwise/Criware
+    - 平台SDK
+  - 主动降显示频率、动态分辨率、降低屏幕亮度
